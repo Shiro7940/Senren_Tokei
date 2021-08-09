@@ -1,8 +1,9 @@
-﻿#V1.0.1 21/08/09
+#V1.0.1 21/08/10
 from pydub import AudioSegment
 from pydub.playback import play
 import time
 import random
+
 AUDPATH="resources/"
 
 chara_dict = {
@@ -88,7 +89,6 @@ def play_cur_time(timelist,chara="mur",middle="_watch_"):
     audlist = []
     print(str(chara)+str(timelist[0]))
     for item in timelist[1]:
-        #print(item)
         audlist += [AudioSegment.from_wav(AUDPATH+chara+middle+item+".wav")]
     for aud in audlist:
         play(aud)
