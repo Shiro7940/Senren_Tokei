@@ -1,10 +1,15 @@
-#V1.0.1 21/08/10
+#V1.2.0 21/08/11
 from pydub import AudioSegment
 from pydub.playback import play
+from PIL import Image
+from os import startfile
 import time
 import random
+import pystray
+import threading
+import json
 
-AUDPATH="resources/"
+RESPATH="resources/"
 
 chara_dict = {
     1: "yos",
@@ -48,11 +53,34 @@ index_dict = {
     "m30" : "32",
     "m40" : "33",
     "m50" : "34",
-    "END" : "35",
-    "h0" : "36"
+    "END" : "35"
     }
     
-    
+def pharse_conf(conf):
+    try:
+        alarmlist = []
+        with open(conf,"r") as file:
+            config = json.load(file)
+            character = config["character"]
+            play_hours = bool(config["play_hours"])
+            play_halfhr = bool(config["play_halfhr"])
+            play_tens = bool(config["play_tens"])
+            play_fives = bool(config["play_fives"])
+            play_mins = bool(config["play_hours"])
+            rand_chr = bool(config["rand_chr"])
+            alarm_playtime = bool(config["alarm_playtime"])
+            alarm_start_wav = config["alarm_start_wav"]
+            sleeping_hours = list(config["sleeping_hours"])
+            for item in config["alarmlist"]:
+                alarmlist += item.values()
+    except Exception as error:
+        print("Error: "+str(error)+", Loading default settings")
+        return ("mur",True,True,True,True,False,True,True,"",[],[])
+    return (character,play_hours,play_halfhr,play_tens,play_fives,play_mins,rand_chr,alarm_playtime,alarm_start_wav,sleeping_hours,alarmlist)
+
+character,play_hours,play_halfhr,play_tens,play_fives,play_mins,rand_chr,alarm_playtime,alarm_start_wav,sleeping_hours,alarmlist =\
+pharse_conf(RESPATH+"config.json")
+
 def format_cur_time(localtime,indexdict=index_dict,includemins=True):
     tlist = []
     index_list = []
@@ -89,7 +117,7 @@ def play_cur_time(timelist,chara="mur",middle="_watch_"):
     audlist = []
     print(str(chara)+str(timelist[0]))
     for item in timelist[1]:
-        audlist += [AudioSegment.from_wav(AUDPATH+chara+middle+item+".wav")]
+        audlist += [AudioSegment.from_wav(RESPATH+chara+middle+item+".wav")]
     for aud in audlist:
         play(aud)
 
@@ -107,13 +135,13 @@ def alarm(localtime,alarmlist,indexdict=index_dict,playtime=True,alarm_start_wav
             localtime.tm_wday in wkday:
                 if len(str(alarm_min)) == 1:
                     alarm_min = "0"+str(alarm_min)
-                print("Alarm at "+str(alarm_hour)+":"+str(alarm_min))
+                icon.notify("Alarm at "+str(alarm_hour)+":"+str(alarm_min))
                 if playtime:
                     play_cur_time(format_cur_time(localtime,indexdict=index_dict,includemins=True),chara=item.get("chara"))
                 if alarm_start_wav != "":
-                    play(AudioSegment.from_wav(AUDPATH+alarm_start_wav))
+                    play(AudioSegment.from_wav(RESPATH+alarm_start_wav))
                 for i in range(1,int(item.get("loop"))+1):
-                    play(AudioSegment.from_wav(AUDPATH+item.get("chara")+"_alm_"+item.get("vindex")+".wav"))
+                    play(AudioSegment.from_wav(RESPATH+item.get("chara")+"_alm_"+item.get("vindex")+".wav"))
                     time.sleep(3)
                 return True
     except Exception as error:
@@ -121,55 +149,19 @@ def alarm(localtime,alarmlist,indexdict=index_dict,playtime=True,alarm_start_wav
         return False
     return False
     
-
-character = "mur"
-play_hours = True
-play_halfhr = True
-play_tens = True
-play_fives = True
-play_mins = True
-rand_chr = True
-alarm_playtime = True
-alarm_start_wav = "" #example: "alarm.wav" 
-sleeping_hours = []  #[23,0,1,2,3,4,5,6,7]
-alarm1 = {
-    "chara" : "mur",
-    "vindex" : "1",
-    "wkday" : [1,2,3,4,5,6,7],
-    "hour" : 0,
-    "min"  : 12,
-    "loop" : 2 
-}
-alarm2 = {
-    "chara" : "yos",
-    "vindex" : "1",
-    "wkday" : [1,2,3,4,5,6,7],
-    "hour" : 23,
-    "min"  : 33,
-    "loop" : 2 
-}
-alarm3 = {
-    "chara" : "mak",
-    "vindex" : "1",
-    "wkday" : [1,2,3,4,5,6,7],
-    "hour" : 12,
-    "min"  : 34,
-    "loop" : 2 
-}
-alarmlist = [alarm1,alarm2,alarm3]
-
-
-t = time.localtime()
-#print(t)
-play_cur_time(format_cur_time(t,index_dict,includemins=True),chara=character)
-t = time.localtime()
-print("Started, Sleep "+str(60-t.tm_sec)+"s")
-time.sleep(60-t.tm_sec)
-try:
+def main(character,play_hours,play_halfhr,play_tens,play_fives,play_mins,rand_chr,alarm_playtime,alarm_start_wav,sleeping_hours,alarmlist):
+    t = time.localtime()
+    play_cur_time(format_cur_time(t,index_dict,includemins=True),chara=character)
+    t = time.localtime()
+    print("Started, Sleep "+str(60-t.tm_sec)+"s")
+    time.sleep(60-t.tm_sec)
+    global stop_threads 
     while True:
+        if stop_threads:
+            break
         try:
             if rand_chr:
-                character = chara_dict.get(random.randint(1,4))
+                character = chara_dict.get(random.randint(1,len(chara_dict)))
             t = time.localtime()
             if (alarm(t,alarmlist,playtime=alarm_playtime,alarm_start_wav=alarm_start_wav) == False)\
                and (t.tm_hour not in sleeping_hours) == True:
@@ -193,13 +185,41 @@ try:
             if (t.tm_hour in sleeping_hours) == True:
                 print("Sleep mode, skipped")
             t = time.localtime()
-            print("Sleep "+str(60-t.tm_sec)+"s")
-            time.sleep(60-t.tm_sec)
+            if not stop_threads:
+                print("Sleep "+str(60-t.tm_sec)+"s")
+                time.sleep(60-t.tm_sec)
+            
         except KeyboardInterrupt:
             print("Stopped")
             break   
         except Exception as error:
             print("Error: "+str(error))
             break
-finally:
-    play(AudioSegment.from_wav(AUDPATH+character+"_end.wav"))
+        
+def run_main():
+    main(character,play_hours,play_halfhr,play_tens,play_fives,play_mins,rand_chr,alarm_playtime,alarm_start_wav,sleeping_hours,alarmlist)
+
+def quit():
+    icon.stop()
+
+def open_conf():
+    icon.notify('Changes will be applied after restart\nPlease save the config file first')
+    startfile("resources\\config.json")    
+
+icon_img =  Image.open(RESPATH+"icon.png","r")
+menu = (pystray.MenuItem('Senren Tokei',lambda icon, item: icon.notify('Python Adaptation made by Shiro7940')),\
+        pystray.MenuItem('Config',open_conf),pystray.MenuItem('Quit',quit))
+icon = pystray.Icon('Senren Tokei')
+icon.menu = menu
+icon.icon = icon_img
+
+stop_threads = False
+thread_time = threading.Thread(target=run_main) 
+thread_time.start()
+icon.run()
+
+if rand_chr:
+    character = chara_dict.get(random.randint(1,len(chara_dict)))
+stop_threads = True
+play(AudioSegment.from_wav(RESPATH+character+"_end.wav"))
+thread_time.join() 
