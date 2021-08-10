@@ -1,0 +1,37 @@
+{
+"character" : "mur",
+"play_hours" : 1,
+"play_halfhr" : 1,
+"play_tens" : 1,
+"play_fives" : 1,
+"play_mins" : 1,
+"rand_chr" : 1,
+"alarm_playtime" : 1,
+"alarm_start_wav" : "" ,
+"sleeping_hours" : [4,5,6,7],
+"alarmlist":[
+{"alarm1" : {
+    "chara" : "alm",
+    "vindex" : "1",
+    "wkday" : [1,2,3,4,5,6,7],
+    "hour" : 0,
+    "min"  : 0,
+    "loop" : 3 
+    },
+"alarm2" : {
+    "chara" : "yos",
+    "vindex" : "1",
+    "wkday" : [1,2,3,4,5,6,7],
+    "hour" : 99,
+    "min"  : 99,
+    "loop" : 2 
+    },
+"alarm3" : {
+    "chara" : "mak",
+    "vindex" : "1",
+    "wkday" : [1,2,3,4,5,6,7],
+    "hour" : 99,
+    "min"  : 99,
+    "loop" : 2 
+    }}
+]}
